@@ -30,10 +30,6 @@
 
 #include <ptr_ekf.h>
 
-#define PTREKF_DEFAULT_ANGLE_NOISE 0.001
-#define PTREKF_DEFAULT_RANGE_NOISE 0.0001
-#define PTREKF_DEFAULT_RATE_NOISE_MULTIPLIER 10.0
-
 namespace KalmanFiltering {
 
 PTREKF::PTREKF() {

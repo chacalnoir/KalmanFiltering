@@ -39,6 +39,10 @@ static const uint8_t PTREKF_STATE_SIZE = 6;
 static const uint8_t PTREKF_MAX_MEASUREMENT_SIZE = 3;
 static const uint8_t PTREKF_INPUT_SIZE = 0;
 
+static const float PTREKF_DEFAULT_ANGLE_NOISE = 0.001;
+static const float PTREKF_DEFAULT_RANGE_NOISE = 0.0001;
+static const float PTREKF_DEFAULT_RATE_NOISE_MULTIPLIER = 10.0;
+
 /**
  * An EKF specifically for a pan/tilt/range target relative to a sensing platform.
  * Pan and tilt are in radians. Range is in meters.
@@ -60,6 +64,7 @@ class PTREKF: public EKF<PTREKF_STATE_SIZE, PTREKF_MAX_MEASUREMENT_SIZE, PTREKF_
         bool ptrCorrect(float time, BLA::Matrix<PTREKF_MAX_MEASUREMENT_SIZE, 1> z,
                         BLA::Matrix<PTREKF_MAX_MEASUREMENT_SIZE, PTREKF_MAX_MEASUREMENT_SIZE> r);
 
+    protected:
         /**
          * The function for predicting the PTR measurement from the state
          */
@@ -79,6 +84,7 @@ class PTREKF: public EKF<PTREKF_STATE_SIZE, PTREKF_MAX_MEASUREMENT_SIZE, PTREKF_
          * The function for calculating the Jacobian of the state transition function. Is a time invariant matrix.
          */
         static BLA::Matrix<PTREKF_STATE_SIZE, PTREKF_STATE_SIZE> stateJacobian(float deltaT, BLA::Matrix<PTREKF_STATE_SIZE, 1>x, BLA::Matrix<PTREKF_INPUT_SIZE, 1>u);
+
     private:
         // The ID for all full PTR measurements
         uint8_t ptr_measurement_id_{0};
