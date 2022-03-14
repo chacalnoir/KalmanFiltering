@@ -1,4 +1,6 @@
 #KalmanFiltering
+Kalman Filtering implementations designed for running on MCUs. Currently tested on an ESP32. Should work on most architectures
+ using the Arduino Toolchain.
 
 Includes two Kalman Filters:
 1) A templated Extended Kalman Filter (EKF) that enables easy extensions for use with nonlinear functions.
