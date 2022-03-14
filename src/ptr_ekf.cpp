@@ -38,15 +38,8 @@ PTREKF::PTREKF() {
     BLA::Matrix<PTREKF_STATE_SIZE, PTREKF_STATE_SIZE> q;
     q.Fill(0.0);
     for(uint8_t counter = 0; counter < 3; counter++) {
-        if(counter < 2) {
-            // Angle and angular rate
-            q(counter, counter) = PTREKF_DEFAULT_ANGLE_NOISE;
-            q(counter + 3, counter + 3) = PTREKF_DEFAULT_ANGLE_NOISE * PTREKF_DEFAULT_RATE_NOISE_MULTIPLIER;
-        } else {
-            // Range and range rate
-            q(counter, counter) = PTREKF_DEFAULT_RANGE_NOISE;
-            q(counter + 3, counter + 3) = PTREKF_DEFAULT_RANGE_NOISE * PTREKF_DEFAULT_RATE_NOISE_MULTIPLIER;
-        }
+        q(counter, counter) = PTREKF_DEFAULT_PROCESS_NOISE;
+        q(counter + 3, counter + 3) = PTREKF_DEFAULT_PROCESS_NOISE * PTREKF_DEFAULT_RATE_NOISE_MULTIPLIER;
     }
     setStateTransition(&stateTransition, &stateJacobian, q);
     setHasRanges(true);
@@ -106,17 +99,18 @@ BLA::Matrix<PTREKF_STATE_SIZE, 1> PTREKF::stateTransition(float deltaT, BLA::Mat
 BLA::Matrix<PTREKF_STATE_SIZE, PTREKF_STATE_SIZE> PTREKF::stateJacobian(float deltaT, BLA::Matrix<PTREKF_STATE_SIZE, 1>x, BLA::Matrix<PTREKF_INPUT_SIZE, 1>u) {
     BLA::Matrix<PTREKF_STATE_SIZE, PTREKF_STATE_SIZE> jacobian;
     /*
-     *  1 0 0   0      0       0
-     *  0 1 0   0      0       0
-     *  0 0 1   0      0       0
-     *  0 0 0 deltaT   0       0
-     *  0 0 0   0    deltaT    0
-     *  0 0 0   0      0     deltaT
+     *  1 0 0 deltaT   0       0
+     *  0 1 0   0    deltaT    0
+     *  0 0 1   0      0     deltaT
+     *  0 0 0   1      0       0
+     *  0 0 0   0      1       0
+     *  0 0 0   0      0       1
      */
     jacobian.Fill(0.0);
     for(uint8_t counter = 0; counter < 3; counter++) {
         jacobian(counter, counter) = 1.0;
-        jacobian(counter + 3, counter + 3) = deltaT;
+        jacobian(counter, counter + 3) = deltaT;
+        jacobian(counter + 3, counter + 3) = 1.0;
     }
 
     return jacobian;

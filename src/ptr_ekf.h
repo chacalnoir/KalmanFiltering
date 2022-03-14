@@ -42,6 +42,7 @@ static const uint8_t PTREKF_INPUT_SIZE = 0;
 static const float PTREKF_DEFAULT_ANGLE_NOISE = 0.001;
 static const float PTREKF_DEFAULT_RANGE_NOISE = 0.0001;
 static const float PTREKF_DEFAULT_RATE_NOISE_MULTIPLIER = 10.0;
+static const float PTREKF_DEFAULT_PROCESS_NOISE = 0.5;
 
 /**
  * An EKF specifically for a pan/tilt/range target relative to a sensing platform.

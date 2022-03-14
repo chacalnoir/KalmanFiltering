@@ -387,11 +387,8 @@ void EKF<state_size, max_measurement_size, input_size>::initialize(float time,
     // Save the initialization values for re-initialization later
     initial_x_ = x;
     initial_p_ = p;
-    // Initialize the state and covariance
-    x_ = x;
-    p_ = p;
-    // Save the time of initialization
-    last_time_ = time;
+    
+    initialize(time);
 }
 
 template<uint8_t state_size, uint8_t max_measurement_size, uint8_t input_size>
@@ -405,6 +402,27 @@ bool EKF<state_size, max_measurement_size, input_size>::initialize(float time) {
     p_ = initial_p_;
     // Save the time of initialization
     last_time_ = time;
+
+    // Debug output
+    if((ptrOut_ != nullptr) && (output_level_ >= OutputLevel::KF_DEBUG)) {
+        ptrOut_->printf("Initial state: [");
+        for(uint8_t index = 0; index < state_size; index++) {
+            ptrOut_->printf("%.6f%s ", x_(index, 0),
+                (index < (state_size - 1)) ? ", " : "]\n");
+        }
+        ptrOut_->print("Initial covariance: \n");
+        for(uint8_t row = 0; row < state_size; row++) {
+            ptrOut_->print("[");
+            for(uint8_t col = 0; col < state_size; col++) {
+                ptrOut_->printf("%.6f", p_(row, col));
+                if(col < (state_size - 1)) {
+                    ptrOut_->print(", ");
+                }
+            }
+            ptrOut_->print("]\n");
+        }
+        ptrOut_->println();
+    }
 
     // Has been re-initialized
     return true;
@@ -463,12 +481,35 @@ void EKF<state_size, max_measurement_size, input_size>::predict(float time, BLA:
     // Calculate change in time
     float deltaT = time - last_time_;
 
+    // Debug output
+    if((ptrOut_ != nullptr) && (output_level_ >= OutputLevel::KF_DEBUG)) {
+        ptrOut_->printf("Predict for delta time %.6f\n", deltaT);
+    }
+
     // Calculate the predicted state based on the state transition function
     x_ = transitionFuncPtr_(deltaT, x_, u);
+
+    // Debug output
+    if((ptrOut_ != nullptr) && (output_level_ >= OutputLevel::KF_DEBUG)) {
+        ptrOut_->printf("Predicted state: [");
+        for(uint8_t index = 0; index < state_size; index++) {
+            ptrOut_->printf("%.6f%s ", x_(index, 0),
+                (index < (state_size - 1)) ? ", " : "]\n");
+        }
+    }
     // Handle range limits
     if(has_ranges_) {
         for(uint8_t state_idx = 0; state_idx < state_size; state_idx++) {
             x_(state_idx, 0) = ranges_[state_idx].updateValue(x_(state_idx, 0));
+        }
+
+        // Debug output
+        if((ptrOut_ != nullptr) && (output_level_ >= OutputLevel::KF_DEBUG)) {
+            ptrOut_->printf("Ranged predicted state: [");
+            for(uint8_t index = 0; index < state_size; index++) {
+                ptrOut_->printf("%.6f%s ", x_(index, 0),
+                    (index < (state_size - 1)) ? ", " : "]\n");
+            }
         }
     }
     // Calculate the Jacobian at the current time
@@ -476,19 +517,68 @@ void EKF<state_size, max_measurement_size, input_size>::predict(float time, BLA:
     // Calculate the predicted covariance
     p_ = Fk*(p_*(~Fk)) + q_;
 
+    // Debug output
+    if((ptrOut_ != nullptr) && (output_level_ >= OutputLevel::KF_DEBUG)) {
+        ptrOut_->print("Predicted covariance: \n");
+        for(uint8_t row = 0; row < state_size; row++) {
+            ptrOut_->print("[");
+            for(uint8_t col = 0; col < state_size; col++) {
+                ptrOut_->printf("%.6f", p_(row, col));
+                if(col < (state_size - 1)) {
+                    ptrOut_->print(", ");
+                }
+            }
+            ptrOut_->print("]\n");
+        }
+        ptrOut_->println();
+    }
+
     // Store the last time
     last_time_ = time;
+
+    // Debug output
+    if((ptrOut_ != nullptr) && (output_level_ >= OutputLevel::KF_DEBUG)) {
+        ptrOut_->printf("End Predict\n\n");
+    }
 }
 
 template<uint8_t state_size, uint8_t max_measurement_size, uint8_t input_size>
 bool EKF<state_size, max_measurement_size, input_size>::correct(uint8_t measurement_id, float time,
                   BLA::Matrix<max_measurement_size, 1> z,
                   BLA::Matrix<max_measurement_size, max_measurement_size> r) {
+    // Need to know the measurement size for this measurement
+    uint8_t measurement_size = measurement_data_[measurement_id].getMeasurementSize();
+
+    // Debug output
+    if((ptrOut_ != nullptr) && (output_level_ >= OutputLevel::KF_DEBUG)) {
+        ptrOut_->printf("Correct\n");
+        ptrOut_->print("Measurement: [");
+        for(uint8_t counter = 0; counter < measurement_size - 1; counter++) {
+            ptrOut_->printf("%.6f", z(counter, 0));
+            ptrOut_->print(", ");
+        }
+        ptrOut_->print(z(measurement_size - 1, 0), 6);
+        ptrOut_->print("]\n");
+        ptrOut_->print("Measurement Noise: \n");
+        for(uint8_t row = 0; row < measurement_size; row++) {
+            ptrOut_->print("[");
+            for(uint8_t col = 0; col < measurement_size; col++) {
+                ptrOut_->printf("%.6f", r(row, col));
+                if(col < (measurement_size - 1)) {
+                    ptrOut_->print(", ");
+                }
+            }
+            ptrOut_->print("]\n");
+        }
+        ptrOut_->println();
+    }
+    
     if(time < last_time_) {
         // Cannot incorporate measurements that are backwards in time
         if((ptrOut_ != nullptr) && (output_level_ >= OutputLevel::KF_WARN)) {
             ptrOut_->printf("EKF::correct historical measurement at time %10.6f cannot be used at time %10.6f\n", time,
                 last_time_);
+            ptrOut_->println("End correct\n");
         }
         return false;
     }
@@ -499,22 +589,54 @@ bool EKF<state_size, max_measurement_size, input_size>::correct(uint8_t measurem
         predict(time);  // Assume no control/input vector if predicting here.
     }
 
-    uint8_t measurement_size = measurement_data_[measurement_id].getMeasurementSize();
-
     // Calculate the predicted measurement and residual
     y_ = measurement_data_[measurement_id].getMeasurementFunctionPtr()(x_);
     residual_ = z - y_;
+
+    // Debug output
+    if((ptrOut_ != nullptr) && (output_level_ >= OutputLevel::KF_DEBUG)) {
+        ptrOut_->printf("Residuals: [");
+        for(uint8_t measurement_index = 0; measurement_index < measurement_size; measurement_index++) {
+            ptrOut_->printf("%.6f%s ", residual_(measurement_index, 0),
+                (measurement_index < (measurement_size - 1)) ? ", " : "]\n");
+        }
+    }
     // Handle ranges
     if(has_ranges_) {
         for(uint8_t measurement_index = 0; measurement_index < measurement_size; measurement_index++) {
             residual_(measurement_index, 0) =
                 measurement_data_[measurement_id].rangeValue(measurement_index, residual_(measurement_index, 0));
         }
+
+        // Debug output
+        if((ptrOut_ != nullptr) && (output_level_ >= OutputLevel::KF_DEBUG)) {
+            ptrOut_->printf("Ranged residuals: [");
+            for(uint8_t measurement_index = 0; measurement_index < measurement_size; measurement_index++) {
+                ptrOut_->printf("%.6f%s ", residual_(measurement_index, 0),
+                    (measurement_index < (measurement_size - 1)) ? ", " : "]\n");
+            }
+        }
     }
     // Calculate the measurement Jacobian
     h_ = measurement_data_[measurement_id].getHFunctionPtr()(x_);
     // Calculate the residual covariance
     s_ = h_*(p_*(~h_)) + r;
+
+    // Debug output
+    if((ptrOut_ != nullptr) && (output_level_ >= OutputLevel::KF_VERBOSE)) {
+        ptrOut_->print("Residual covariance: \n");
+        for(uint8_t row = 0; row < state_size; row++) {
+            ptrOut_->print("[");
+            for(uint8_t col = 0; col < measurement_size; col++) {
+                ptrOut_->printf("%.6f", s_(row, col));
+                if(col < (measurement_size - 1)) {
+                    ptrOut_->print(", ");
+                }
+            }
+            ptrOut_->print("]\n");
+        }
+        ptrOut_->println();
+    }
     // Calculate the Kalman gain
     bool succeeded;
     // Only invert the part of the matrix that has useful information.
@@ -527,19 +649,76 @@ bool EKF<state_size, max_measurement_size, input_size>::correct(uint8_t measurem
         if((ptrOut_ != nullptr) && (output_level_ >= OutputLevel::KF_WARN)) {
             ptrOut_->printf("EKF::correct singular matrix - cannot use measurement\n");
         }
+        ptrOut_->println("End correct\n");
         return false;
+    } else {
+
+        // Debug output
+        if((ptrOut_ != nullptr) && (output_level_ >= OutputLevel::KF_VERBOSE)) {
+            ptrOut_->print("Kalman gain: \n");
+            for(uint8_t row = 0; row < state_size; row++) {
+                ptrOut_->print("[");
+                for(uint8_t col = 0; col < measurement_size; col++) {
+                    ptrOut_->printf("%.6f", k_(row, col));
+                    if(col < (measurement_size - 1)) {
+                        ptrOut_->print(", ");
+                    }
+                }
+                ptrOut_->print("]\n");
+            }
+            ptrOut_->println();
+        }
     }
 
     // Update the state
-    x_ = x_ + k_ * y_;
+    x_ = x_ + k_ * residual_;
+
+    // Debug output
+    if((ptrOut_ != nullptr) && (output_level_ >= OutputLevel::KF_DEBUG)) {
+        ptrOut_->printf("Corrected state: [");
+        for(uint8_t index = 0; index < state_size; index++) {
+            ptrOut_->printf("%.6f%s ", x_(index, 0),
+                (index < (state_size - 1)) ? ", " : "]\n");
+        }
+    }
     // Handle range limits
     if(has_ranges_) {
         for(uint8_t state_idx = 0; state_idx < state_size; state_idx++) {
             x_(state_idx, 0) = ranges_[state_idx].updateValue(x_(state_idx, 0));
         }
+
+        // Debug output
+        if((ptrOut_ != nullptr) && (output_level_ >= OutputLevel::KF_DEBUG)) {
+            ptrOut_->printf("Ranged corrected state: [");
+            for(uint8_t index = 0; index < state_size; index++) {
+                ptrOut_->printf("%.6f%s ", x_(index, 0),
+                    (index < (state_size - 1)) ? ", " : "]\n");
+            }
+        }
     }
     // Update the covariance
     p_ = (identity_ - k_*h_)*p_;
+
+    // Debug output
+    if((ptrOut_ != nullptr) && (output_level_ >= OutputLevel::KF_DEBUG)) {
+        ptrOut_->print("Covariance: \n");
+        for(uint8_t row = 0; row < state_size; row++) {
+            ptrOut_->print("[");
+            for(uint8_t col = 0; col < state_size; col++) {
+                ptrOut_->printf("%.6f", p_(row, col));
+                if(col < (state_size - 1)) {
+                    ptrOut_->print(", ");
+                }
+            }
+            ptrOut_->print("]\n");
+        }
+        ptrOut_->println();
+    }
+
+    // Debug output
+    if((ptrOut_ != nullptr) && (output_level_ >= OutputLevel::KF_DEBUG)) {
+        ptrOut_->printf("End correct\n\n");
+    }
 
     return true;
 }
