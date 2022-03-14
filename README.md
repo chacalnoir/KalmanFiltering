@@ -11,5 +11,5 @@ The example code shows how to use the Pan/Tilt/Range EKF. The numbers are not re
 Debug output is easily included by setting the appropriate debug level and passing a stream object to the EKF. The example
  shows how.
 
-This library requires the forked BasicLinearAlgebra in order to perform submatrix inversions (in order to handle 
- measurements of various sizes for a single EKF).
+This library requires the forked BasicLinearAlgebra (https://github.com/chacalnoir/BasicLinearAlgebra.git)
+ in order to perform submatrix inversions (in order to handle measurements of various sizes for a single EKF).
